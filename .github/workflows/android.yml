@@ -1,10 +1,9 @@
-name: Build KAI 2.0 APK
+name: Build KAI Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main, master]
 
 permissions:
   contents: read
@@ -17,33 +16,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install unzip
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip
-
-      - name: Extract KAI project
-        run: |
-          mkdir -p extracted
-          unzip -q kai-2.0-living-ai.zip -d extracted
-          echo "ZIP extracted successfully"
-          find extracted -maxdepth 4 -type f | head -100
-
-      - name: Locate Android project
-        id: project
-        run: |
-          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/extracted" \
-            -type f -name settings.gradle.kts \
-            -printf '%h\n' | head -n 1)
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle.kts not found"
-            exit 1
-          fi
-
-          echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-          echo "Project found: $PROJECT_DIR"
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -53,20 +25,18 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.7'
 
-      - name: Generate Gradle Wrapper
-        working-directory: ${{ steps.project.outputs.dir }}
-        run: gradle wrapper --gradle-version 8.9
+      - name: Check project files
+        run: |
+          test -f settings.gradle.kts
+          test -f app/build.gradle.kts
 
       - name: Build APK
-        working-directory: ${{ steps.project.outputs.dir }}
-        run: ./gradlew assembleDebug
+        run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KAI-2.0-APK
-          path: ${{ steps.project.outputs.dir }}/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 7
+          name: KAI-2.0-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
